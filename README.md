@@ -1,54 +1,57 @@
 # 환율 데일리 브리핑 (Daily FX Briefing)
 
-매일 아침 **9시(KST)**에 환율 브리핑을 자동 생성하고, **별도의 이메일 발송 스크립트**로
-`khyoo@wooribank.com` 에 직접 전송합니다.
+매일 아침 **9시(KST)**에 원/달러 환율 브리핑을 자동 생성해 **웹페이지에 게시**하고,
+**Vercel**로 자동 배포합니다.
 
-## 동작 흐름
+## 웹사이트 구성 (정적 사이트, 빌드 불필요)
 
-매일 09:00 KST에 새 Claude Code 세션이 자동 실행되어:
-1. 웹을 조사해 브리핑 3개 섹션을 작성 (아래 참고)
-2. 브리핑을 `briefing.md` 로 저장
-3. `send_briefing_email.py` 를 실행해 `khyoo@wooribank.com` 로 이메일 발송
-
-브리핑 구성:
-1. **📊 전날 환율 이슈 요약** — 전 영업일 원/달러 종가·등락, 주요 통화(엔·유로·위안·DXY) 동향, 핵심 요인.
-2. **🔗 꼭 읽어야 할 기사** — 중요 기사 3~5개를 클릭 가능한 링크 + 한 줄 이유와 함께.
-3. **📅 오늘의 주요 환율 이벤트** — 오늘 경제지표·FOMC/금통위·연설 등을 한국시간·영향 코멘트와 함께.
-
-## 이메일 발송 스크립트 (`send_briefing_email.py`)
-
-Claude 계정 알림과 무관하게, 표준 라이브러리만으로 SMTP를 통해 지정 주소로 메일을 보냅니다.
-(Gmail·네이버·사내 메일 등 어떤 SMTP 서버든 사용 가능)
-
-```bash
-python3 send_briefing_email.py --body-file briefing.md
+```
+index.html                 # 최신 브리핑 + 아카이브 뷰어 (자체 완결 · 라이트/다크 대응)
+briefings/
+  manifest.json            # 브리핑 목록 (날짜·제목, 최신순)
+  YYYY-MM-DD.md            # 각 날짜 브리핑 원문 (Markdown)
+  YYYY-MM-DD.html          # 렌더링된 HTML 프래그먼트
+scripts/publish_briefing.mjs   # 브리핑 게시 생성기 (의존성 없음)
+vercel.json                # 정적 호스팅 설정 (cleanUrls + no-cache)
 ```
 
-### ⚙️ 필요한 환경변수 (환경 설정에 추가하세요)
+브라우저는 `index.html`이 `manifest.json`을 읽어 최신 브리핑을 표시하고, 왼쪽
+아카이브에서 지난 날짜를 선택할 수 있습니다. (`#YYYY-MM-DD` 딥링크 지원)
 
-발송이 실제로 동작하려면 아래 SMTP 자격증명을 **환경(Environment) 설정의 환경변수**에
-추가해야 합니다. 코드에는 비밀번호를 넣지 않습니다.
+## 매일 하는 일
 
-| 변수 | 필수 | 설명 | 예시 |
-|------|:---:|------|------|
-| `SMTP_HOST` | ✅ | SMTP 서버 주소 | `smtp.gmail.com` |
-| `SMTP_USER` | ✅ | SMTP 로그인 계정 | `me@gmail.com` |
-| `SMTP_PASS` | ✅ | 비밀번호/앱 비밀번호 | (앱 비밀번호) |
-| `SMTP_PORT` | ⬜ | 기본 `587` | `465` |
-| `SMTP_FROM` | ⬜ | 발신자 주소 (기본=`SMTP_USER`) | `noreply@…` |
-| `SMTP_SECURITY` | ⬜ | `starttls`(기본)·`ssl`·`none` | `ssl` |
-| `BRIEFING_TO` | ⬜ | 수신자 (기본=`khyoo@wooribank.com`) | `khyoo@wooribank.com` |
+매일 09:00 KST에 새 Claude Code 세션이 자동 실행되어:
+1. 웹을 조사해 브리핑 작성 (전날 이슈 요약 · 필독 기사 · 오늘 이벤트)
+2. `node scripts/publish_briefing.mjs --in briefing.md` 로 사이트에 게시
+3. 변경분을 커밋 & 푸시 → **Vercel이 자동 배포**
 
-> Gmail 사용 시: 2단계 인증 후 **앱 비밀번호**를 발급받아 `SMTP_PASS` 에 넣으세요
-> (`SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`).
+## 브리핑 게시 생성기
 
-## 스케줄 설정
+```bash
+node scripts/publish_briefing.mjs --in briefing.md               # 오늘 날짜(KST)로 게시
+node scripts/publish_briefing.mjs --in briefing.md --date 2026-07-06
+```
+`briefings/<date>.md`·`<date>.html` 생성 및 `manifest.json` 갱신을 수행합니다.
+
+## 🚀 Vercel 배포 (최초 1회 연결 필요)
+
+> ⚠️ 이 실행 환경은 네트워크 정책상 Vercel(`vercel.com`)에 접속할 수 없어
+> CLI 배포를 대신 실행할 수 없습니다. 대신 **Git 연동**을 쓰면 매일 커밋·푸시할 때마다
+> Vercel이 자동 배포하므로 우리 쪽에서 Vercel에 접속할 필요가 없습니다.
+
+**최초 1회 설정 (Vercel 대시보드에서):**
+1. [vercel.com/new](https://vercel.com/new) → **Import Git Repository** → `maxaiteacher/kh` 선택
+2. **Framework Preset: `Other`**, Build Command / Output Directory **비워둠** (정적 사이트)
+3. **Deploy** 클릭
+4. 프로젝트 **Settings → Git → Production Branch** 를
+   `claude/daily-currency-briefing-euy4np` 로 지정 (또는 이 브랜치를 `main`에 병합)
+
+이후에는 매일 브리핑 커밋이 푸시될 때마다 자동으로 재배포되어 최신 내용이 게시됩니다.
+
+## 스케줄 트리거
 
 | 항목 | 값 |
 |------|-----|
-| 트리거 ID | `trig_01DX67bdCtp9xnAYUECYrQxb` |
 | Cron (UTC) | `0 0 * * *` = 매일 00:00 UTC = **09:00 KST** |
-| 발화 방식 | 매 실행 시 새 세션 생성 (`create_new_session_on_fire`) |
-| 수신자 | `khyoo@wooribank.com` (스크립트가 발송) |
-| Claude 계정 알림 | 푸시 ✅ / 이메일 ❌ (이메일은 스크립트가 담당) |
+| 발화 방식 | 매 실행 시 새 세션 생성 |
 | 언어 / 통화 초점 | 한국어 / 원·달러 중심 (엔·유로·위안·DXY 포함) |

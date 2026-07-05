@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>환율 데일리 브리핑</title>
+  <meta name="description" content="매일 아침 갱신되는 원/달러 환율 데일리 브리핑" />
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #ffffff; --text: #1a1d21; --muted: #6b7280;
+      --border: #e5e7eb; --accent: #2563eb; --accent-soft: #eff4ff;
+      --code: #f1f3f5;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e1116; --card: #171b21; --text: #e6e8eb; --muted: #9aa4b2;
+        --border: #262c36; --accent: #6ea8fe; --accent-soft: #1a2536;
+        --code: #1e242c;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      line-height: 1.65; -webkit-font-smoothing: antialiased;
+    }
+    header {
+      background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 18px 20px;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand h1 { font-size: 19px; margin: 0; font-weight: 700; }
+    .brand .dot { color: var(--accent); }
+    .tagline { color: var(--muted); font-size: 13px; margin: 4px 0 0 34px; }
+    .layout { display: grid; grid-template-columns: 240px 1fr; gap: 28px; padding: 28px 20px; }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; gap: 16px; } }
+    aside h2 {
+      font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--muted); margin: 0 0 10px 2px;
+    }
+    .archive { list-style: none; margin: 0; padding: 0; }
+    .archive li { margin-bottom: 4px; }
+    .archive button {
+      width: 100%; text-align: left; background: transparent; border: 1px solid transparent;
+      color: var(--text); padding: 8px 10px; border-radius: 8px; cursor: pointer;
+      font-size: 14px; font-family: inherit;
+    }
+    .archive button:hover { background: var(--accent-soft); }
+    .archive button.active { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+    .archive .d { display: block; font-size: 12px; color: var(--muted); }
+    article {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 30px 34px; min-height: 300px;
+    }
+    @media (max-width: 760px) { article { padding: 22px 18px; } }
+    article h1 { font-size: 26px; margin: 0 0 6px; line-height: 1.25; }
+    article h2 { font-size: 18px; margin: 26px 0 8px; padding-top: 4px; }
+    article h3 { font-size: 16px; margin: 20px 0 6px; }
+    article h4 { font-size: 14px; margin: 16px 0 4px; color: var(--muted); }
+    article p { margin: 8px 0; }
+    article ul { margin: 8px 0; padding-left: 22px; }
+    article li { margin: 4px 0; }
+    article a { color: var(--accent); text-decoration: none; }
+    article a:hover { text-decoration: underline; }
+    article hr { border: 0; border-top: 1px solid var(--border); margin: 22px 0; }
+    article blockquote {
+      margin: 14px 0; padding: 10px 16px; border-left: 3px solid var(--accent);
+      background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text);
+    }
+    article code { background: var(--code); padding: 1px 6px; border-radius: 5px; font-size: 90%; }
+    .meta { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    footer { color: var(--muted); font-size: 12px; text-align: center; padding: 24px; }
+    .empty { color: var(--muted); text-align: center; padding: 60px 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand"><span class="dot">🗞️</span><h1>환율 데일리 브리핑</h1></div>
+      <div class="tagline">매일 아침 갱신 · 원/달러 중심 · 어제 이슈 요약 + 필독 기사 + 오늘 이벤트</div>
+    </div>
+  </header>
+
+  <div class="wrap layout">
+    <aside>
+      <h2>아카이브</h2>
+      <ul class="archive" id="archive"></ul>
+    </aside>
+    <article id="content">
+      <div class="empty">불러오는 중…</div>
+    </article>
+  </div>
+
+  <footer>자동 생성 · Claude Code + Vercel</footer>
+
+  <script>
+    const archiveEl = document.getElementById("archive");
+    const contentEl = document.getElementById("content");
+
+    function fmt(date) {
+      const [y, m, d] = date.split("-");
+      return `${y}. ${Number(m)}. ${Number(d)}`;
+    }
+
+    async function loadBriefing(item, entries) {
+      contentEl.innerHTML = '<div class="empty">불러오는 중…</div>';
+      try {
+        const res = await fetch(`briefings/${item.file}?v=${item.date}`);
+        if (!res.ok) throw new Error(res.status);
+        const html = await res.text();
+        contentEl.innerHTML = `<div class="meta">📅 ${fmt(item.date)} 기준</div>` + html;
+      } catch (e) {
+        contentEl.innerHTML = '<div class="empty">브리핑을 불러오지 못했습니다.</div>';
+      }
+      [...archiveEl.querySelectorAll("button")].forEach((b) =>
+        b.classList.toggle("active", b.dataset.date === item.date)
+      );
+      if (location.hash.slice(1) !== item.date) history.replaceState(null, "", `#${item.date}`);
+    }
+
+    async function init() {
+      let manifest;
+      try {
+        const res = await fetch("briefings/manifest.json?v=" + Date.now());
+        manifest = await res.json();
+      } catch (e) {
+        contentEl.innerHTML = '<div class="empty">아직 게시된 브리핑이 없습니다.</div>';
+        return;
+      }
+      const entries = manifest.briefings || [];
+      if (!entries.length) {
+        contentEl.innerHTML = '<div class="empty">아직 게시된 브리핑이 없습니다.</div>';
+        return;
+      }
+      archiveEl.innerHTML = "";
+      for (const it of entries) {
+        const li = document.createElement("li");
+        const btn = document.createElement("button");
+        btn.dataset.date = it.date;
+        btn.innerHTML = `<span class="d">${fmt(it.date)}</span>브리핑`;
+        btn.onclick = () => loadBriefing(it, entries);
+        li.appendChild(btn);
+        archiveEl.appendChild(li);
+      }
+      const hash = location.hash.slice(1);
+      const target = entries.find((e) => e.date === hash) || entries[0];
+      loadBriefing(target, entries);
+    }
+
+    init();
+  </script>
+</body>
+</html>
